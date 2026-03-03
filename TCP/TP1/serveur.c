@@ -64,13 +64,45 @@ int main() {
         printf("Client IP : %s, Port : %d\n", client_ip, client_port);
 
 
-        // Buffer, et fonction pour recevoir des messages
-        char buffer[msgSize];
-        recv(socket_client, buffer, sizeof(buffer), 0);
-        printf("Message reçu : %s\n", buffer);
+        // Créer un processus fils pour gérer le client
+        pid_t pid = fork();
+        if (pid == 0) {  // Processus fils
+            close(sockettine); // Le fils n'a pas besoin du socket serveur
 
-        close(socket_client);
+            // Récupérer le nom du fichier envoyé par le client
+            char filename[msgSize];
+            memset(filename, 0, msgSize);
+            recv(socket_client, filename, sizeof(filename), 0);
+            filename[strcspn(filename, "\n")] = 0;  // Enlever le retour à la ligne
+
+            // Ouvrir le fichier demandé
+            FILE *file = fopen(filename, "rb");
+            if (file == NULL) {
+                perror("Fichier non trouvé");
+                close(socket_client);
+                exit(EXIT_FAILURE);
+            }
+
+            // Lire et envoyer le fichier au client
+            char buffer[msgSize];
+            size_t bytes_read;
+            while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+                send(socket_client, buffer, bytes_read, 0);
+            }
+
+            // Fermer le fichier et la connexion
+            fclose(file);
+            close(socket_client);
+            exit(EXIT_SUCCESS);
+        } else if (pid > 0) {  // Processus père
+            close(socket_client);  // Le père n'a pas besoin du socket client
+        } else {
+            perror("Erreur fork");
+            exit(EXIT_FAILURE);
+        }
     }
 
-    
+    // Fermer la socket serveur
+    close(sockettine);
+    return 0;
 }

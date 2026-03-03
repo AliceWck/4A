@@ -10,7 +10,7 @@
 
 int main() {
     int sockettine;
-    int msgSize = 25;
+    int MSG_SIZE = 256;
 
     sockettine = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -40,8 +40,32 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Définitino d'un buffer de taille 256. Ensuite, on copie la char dedans, et on l'envoie
-    char buffer[msgSize];
-    strcpy(buffer, "salut la tcheam");
-    send(sockettine, buffer, strlen(buffer),0);
+    // Demander un fichier en envoyant son nom
+    char filename[MSG_SIZE];
+    printf("Entrez le nom du fichier à recevoir : ");
+    fgets(filename, MSG_SIZE, stdin);
+    filename[strcspn(filename, "\n")] = 0;  // Supprimer le retour à la ligne
+
+    send(sockettine, filename, strlen(filename), 0);
+
+    // Réception du fichier
+    char buffer[MSG_SIZE];
+    FILE *file = fopen("copie_du_fichier", "wb");
+    if (file == NULL) {
+        perror("Erreur ouverture fichier");
+        close(sockettine);
+        exit(EXIT_FAILURE);
+    }
+
+    int bytes_received;
+    while ((bytes_received = recv(sockettine, buffer, sizeof(buffer), 0)) > 0) {
+        fwrite(buffer, 1, bytes_received, file);
+    }
+
+    printf("Fichier reçu et sauvegardé.\n");
+
+    // Fermer le fichier et la connexion
+    fclose(file);
+    close(sockettine);
+    return 0;
 }
