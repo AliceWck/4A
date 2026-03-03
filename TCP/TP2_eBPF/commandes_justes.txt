@@ -1,0 +1,113 @@
+sudo apt update && sudo apt upgrade
+
+apt-add-repository universe
+
+sudo apt install clang llvm bpfcc-tools libbpf-dev linux-headers-$(uname -r)
+
+bfptool version --> ok
+
+
+
+---------------------- Partie 2.1 ---------------------
+COMPILER AVEC CLANG :
+sudo clang -I/usr/include/x86_64-linux-gnu/ -O2 -g -target bpf -c hello_ebpf.c -o hello_ebpf.o
+
+CHARGEMENT DANS LE NOYAU :
+sudo bpftool prog load hello_ebpf.o /sys/fs/bpf/hello_ebpf type raw_tracepoint
+
+EXECUTER : 
+sudo bpftool prog run pinned /sys/fs/bpf/hello_ebpf repeat 0
+
+LIRE LES INFOS :
+sudo cat /sys/kernel/debug/tracing/trace
+
+RENVOIE BIEN : 
+root@ubuntu:/home/ubuntu/Desktop/4A/TCP/TP2_eBPF# sudo cat /sys/kernel/debug/tracing/trace
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 1/1   #P:8
+#
+#                                _-----=> irqs-off/BH-disabled
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| / _-=> migrate-disable
+#                              |||| /     delay
+#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION
+#              | |         |   |||||     |         |
+         bpftool-56351   [007] ...2. 12583.744544: bpf_trace_printk: Hello, World!\n
+
+
+
+----------- Partie 3 ------------------
+
+Et dans la suite, avant d'exécuter, il faut attacher le programme à une interface réseau
+
+sudo clang -I/usr/include/x86_64-linux-gnu/ -O2 -g -target bpf -c network_monitor.c -o network_monitor.o
+
+sudo bpftool prog load network_monitor.o /sys/fs/bpf/network_monitor type xdp
+
+sudo bpftool prog run pinned /sys/fs/bpf/network_monitor repeat 0
+
+sudo bpftool net attach xdpgeneric pinned /sys/fs/bpf/network_monitor dev enp5s0
+
+sudo bpftool prog run pinned /sys/fs/bpf/network_monitor repeat 0
+
+sudo cat /sys/kernel/debug/tracing/trace
+
+
+Puis on met une @IP
+ip addr add 192.168.1.2 dev enp5s0
+
+Et on se ping
+ping 192.168.1.2
+
+Puis ouvrir dmesg ? Sert à quoi wooow
+
+Et rouvrir le cat trace
+root@ubuntu:/home/ubuntu/Desktop/4A/TCP/TP2_eBPF# sudo cat /sys/kernel/debug/tracing/trace
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 16/16   #P:8
+#
+#                                _-----=> irqs-off/BH-disabled
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| / _-=> migrate-disable
+#                              |||| /     delay
+#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION
+#              | |         |   |||||     |         |
+         bpftool-56351   [007] ...2. 12583.744544: bpf_trace_printk: Hello, World!\n
+         bpftool-56803   [002] ...2. 12962.159358: bpf_trace_printk: Packet received!\n
+         bpftool-57850   [006] b..11 13947.843715: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14168.129324: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14168.294041: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14168.545430: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14168.795982: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14168.996988: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14169.129951: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14170.213007: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14171.130589: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14172.428631: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [001] ..s21 14175.133637: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [002] ..s21 14183.139107: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [002] ..s21 14199.155169: bpf_trace_printk: Packet received!\n
+    avahi-daemon-46391   [002] ..s21 14231.185885: bpf_trace_printk: Packet received!\n
+
+On voit bien les pings
+
+
+
+
+
+----------------- Partie 4 ------------
+sudo clang -I/usr/include/x86_64-linux-gnu/ -O2 -g -target bpf -c icmp_blocker.c -o icmp_blocker.o
+
+sudo bpftool prog load icmp_blocker.o /sys/fs/bpf/icmp_blocker type xdp
+
+sudo bpftool net attach xdpgeneric pinned /sys/fs/bpf/icmp_blocker dev enp5s0
+
+sudo bpftool prog run pinned /sys/fs/bpf/icmp_blocker repeat 0
+
+sudo cat /sys/kernel/debug/tracing/trace
